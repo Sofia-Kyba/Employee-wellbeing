@@ -410,6 +410,6 @@ durbinWatsonTest(final2)
 
 p-value is quite big, so we fail to reject H0, that there is no autocorrelation. That also confirms the value of D-W Statistic: it is close to 2, that means small autocorrelation. So, this assumption holds.
 
-Final interpretation of the model and results:
-Factors that have considerable impact are ability for self-development, life balance, wage, education level, place where work is situated.
+Results.
+Factors that have considerable on employees' satisfaction impact are ability for self-development, life balance, wage, education level, place where work is situated.
 Such things as age, gender, marital status, specialty and working experience don't really influence employees' wellbeing.
