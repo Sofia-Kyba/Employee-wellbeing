@@ -1,0 +1,415 @@
+---
+title: "Employee_wellbeing"
+author: "Sofia_Kyba"
+date: "4/24/2021"
+output: html_document
+---
+
+### Econometrics course project 
+### Topic: Employee wellbeing
+### Prepared by: Sofia Kyba
+#### Description: The aim of this project is to investigate what factors influence employees' wellbeing and their satisfaction at job.
+
+```{r}
+install.packages('hrbrthemes')
+install.packages('broom')
+install.packages('vars')
+install.packages('mctest')
+install.packages("car")
+install.packages("lmtest")
+install.packages("robustbase")
+install.packages("sandwich")
+install.packages("caret")
+install.packages("olsrr")
+install.packages("jtools")
+install.packages("huxtable")
+```
+### Installing needed libraries.
+
+```{r}
+require(broom)
+require(dplyr)
+library("ggplot2")
+library("corrplot")
+library(magrittr)
+library(knitr)
+library(hrbrthemes)
+library(mctest)
+library(car)
+library(lmtest)
+library(robustbase)
+library(sandwich)
+library(caret)
+library(gvlma)
+library(olsrr)
+library(jtools)
+library(huxtable)
+```
+
+### Loading data
+Load all the poll_answers (gathered employees answers)
+```{r}
+poll_answers <- read.csv(file = './poll_answers.csv')
+head(poll_answers)
+```
+Explanation of data:
+
+gender: 1 - man, 2 - woman
+marital_status: 1 - not married, 2 - married, 3 - divorced
+education level: 1 - middle, 2 - technical, 3 - not finished higher, 4 - basic higher, 5 - full higher
+
+speciality sphere: 1 - nature, 2 - technologies, 3 - person, 4 - numbers, 5 - art
+occupation sphere: 1 - nature, 2 - technologies, 3 - person, 4 - numbers, 5 - art
+
+work_experience and cuurent_work_experience are given in years.
+dist_to_work - how much it takes to get from home to workplace (in minutes)
+
+envir_satisfac - employee's satisfaction of environment where his workplace is situated in range from 1 to 5
+head_satisfac - employee's satisfaction of company'd management office in range from 1 to 5
+colleague_satisfac - employee's satisfaction of his colleagues in range from 1 to 5
+selfdev_satisfac - employee's level of freedom and ability to develop himself at work in range from 1 to 5
+wage_satisfac - employee's satisfaction of his monthly wage in range from 1 to 5
+balance_satisfac - employee's level of balance between his work, family and relax in range from 1 to 5
+
+job_satisfac - employee's level of general satisfaction of his current job
+
+### Plotting target value (how employees are satisfied with their job)
+```{r}
+jobSatisfac_distr <- poll_answers %>%
+  ggplot( aes(x=job_satisfac)) +
+    geom_histogram( binwidth=1, fill="#69b3a2", color="#e9ecef", alpha=0.9) +
+    ggtitle("Histogram for job satisfaction distribution") +
+    theme_ipsum() +
+    theme(
+      plot.title = element_text(size=17)
+    )
+jobSatisfac_distr
+```
+
+We cane observe that in fact most of people are more or less satisfied with their job.
+
+### Visualizing some basic information about responders.
+
+```{r}
+# build an histogram for age
+age_distr <- poll_answers %>%
+  ggplot( aes(x=age)) +
+    geom_histogram( binwidth=2, fill="#69b3a2", color="#e9ecef", alpha=0.9) +
+    ggtitle("Histogram for age distribution") +
+    theme_ipsum() +
+    theme(
+      plot.title = element_text(size=17)
+    )
+age_distr
+
+# count quantity of man and woman and plot a pie chart
+male <- length(poll_answers$gender[poll_answers$gender == '1'])
+female <- length(poll_answers$gender[poll_answers$gender == '2'])
+
+gender_data <- data.frame(
+  gender = c(paste("Male - ", strtoi(male)), paste("Female - ", strtoi(female))),
+  gender_num = c(male, female)
+)
+
+mycols_ <- c("#0073C2FF", "#EFC000FF")
+
+gender_donut <- ggplot(data = gender_data, aes(x = 2, y = gender_num, fill = gender)) +
+  ggtitle("Chart for gender distribution") +
+  geom_bar(stat = "identity", color = "white") +
+  coord_polar(theta = "y", start = 0)+
+  scale_fill_manual(values = mycols_) +
+  theme_void()+
+  xlim(0.5, 2.5)
+gender_donut
+
+# count quantity of married, not married and divorced people
+not_married <- length(poll_answers$marital_status[poll_answers$marital_status == '1'])
+married <- length(poll_answers$marital_status[poll_answers$marital_status == '2'])
+divorced <- length(poll_answers$marital_status[poll_answers$marital_status == '3'])
+
+status_data <- data.frame(
+  marital_status = c(paste("Not married - ", strtoi(not_married)), paste("Married - ", strtoi(married)), paste("Divorced - ", strtoi(divorced))),
+  marital_num = c(not_married, married, divorced)
+)
+
+mycols_ <- c("#0073C2FF", "#EFC000FF", "#CD534CFF")
+
+status_donut <- ggplot(data = status_data, aes(x = 2, y = marital_num, fill = marital_status)) +
+  ggtitle("Chart for marital status distribution") +
+  geom_bar(stat = "identity", color = "white") +
+  coord_polar(theta = "y", start = 0)+
+  scale_fill_manual(values = mycols_) +
+  theme_void()+
+  xlim(0.5, 2.5)
+
+status_donut
+
+# count people that have certain type of education and plot a pie chart
+middle <- length(poll_answers$education_level[poll_answers$education_level == '1'])
+technical <- length(poll_answers$education_level[poll_answers$education_level == '2'])
+not_finished_higher <- length(poll_answers$education_level[poll_answers$education_level == '3'])
+basic <- length(poll_answers$education_level[poll_answers$education_level == '4'])
+full <- length(poll_answers$education_level[poll_answers$education_level == '5'])
+
+educ_data <- data.frame(
+  education = c(paste("Middle - ", strtoi(middle)), paste("Technical - ", strtoi(technical)),
+                 paste("Not finished higher - ", strtoi(not_finished_higher)), paste("Basic higher - ", strtoi(basic)),
+                 paste("Full higher - ", strtoi(full))),
+  educ_num = c(middle, technical, not_finished_higher, basic, full)
+)
+
+mycols <- c("#0073C2FF", "#EFC000FF", "#868686FF", "#CD534CFF", "#43544CFF")
+
+educ_donut <- ggplot(data = educ_data, aes(x = 2, y = educ_num, fill = education)) +
+  ggtitle("Chart for education level distribution") +
+  geom_bar(stat = "identity", color = "white") +
+  coord_polar(theta = "y", start = 0)+
+  scale_fill_manual(values = mycols) +
+  theme_void()+
+  xlim(0.5, 2.5)
+educ_donut
+
+# count people that belong to certain occupation sphere
+nature <- length(poll_answers$speciality[poll_answers$speciality == 1])
+technology <- length(poll_answers$speciality[poll_answers$speciality == 2])
+person <- length(poll_answers$speciality[poll_answers$speciality == 3])
+numbers <- length(poll_answers$speciality[poll_answers$speciality == 4])
+art <- length(poll_answers$speciality[poll_answers$speciality == 5])
+
+speciality_data <- data.frame(
+  specialities = c(paste("Nature - ", strtoi(nature)), paste("Technology - ", strtoi(technology)),
+                       paste("Person - ", strtoi(person)), paste("Numbers - ", strtoi(numbers)), paste("Art - ", strtoi(art))),
+  speciality_num = c(nature, technology, person, numbers, art)
+)
+
+speciality_donut <- ggplot(data = speciality_data, aes(x = 2, y = speciality_num, fill = specialities)) +
+  ggtitle("Chart for education speciality distribution") +
+  geom_bar(stat = "identity", color = "white") +
+  coord_polar(theta = "y", start = 0)+
+  scale_fill_manual(values = mycols) +
+  theme_void()+
+  xlim(0.5, 2.5)
+speciality_donut
+
+```
+We can also use summary() for viewing metrics related to our data to observe some additional information.
+```{r}
+summary(poll_answers)
+```
+
+
+### Building correlation matrix to see how all the variables are correlated with each other
+
+```{r}
+numericData <- tibble(poll_answers$age, poll_answers$gender, poll_answers$marital_status, poll_answers$education_level, poll_answers$speciality, poll_answers$occupation,
+                          poll_answers$day_hours,poll_answers$work_experience, poll_answers$current_work_experience, poll_answers$dist_to_work, poll_answers$envir_satisfac,
+                          poll_answers$head_satisfac, poll_answers$colleague_satisfac, poll_answers$selfdev_satisfac, poll_answers$wage_satisfac,
+                          poll_answers$balance_satisfac, poll_answers$job_satisfac)
+
+#Rename columns for convenience and better visualization
+names(numericData)[names(numericData) == "poll_answers$age"] <- "age"
+names(numericData)[names(numericData) == "poll_answers$gender"] <- "gender"
+names(numericData)[names(numericData) == "poll_answers$marital_status"] <- "marital_status"
+names(numericData)[names(numericData) == "poll_answers$education_level"] <- "educ_level"
+names(numericData)[names(numericData) == "poll_answers$speciality"] <- "speciality"
+names(numericData)[names(numericData) == "poll_answers$occupation"] <- "occup"
+names(numericData)[names(numericData) == "poll_answers$day_hours"] <- "day_hours"
+names(numericData)[names(numericData) == "poll_answers$work_experience"] <- "work_exp"
+names(numericData)[names(numericData) == "poll_answers$current_work_experience"] <- "curr_work_exp"
+names(numericData)[names(numericData) == "poll_answers$dist_to_work"] <- "dist_to_work"
+names(numericData)[names(numericData) == "poll_answers$envir_satisfac"] <- "env_sat"
+names(numericData)[names(numericData) == "poll_answers$head_satisfac"] <- "management_sat"
+names(numericData)[names(numericData) == "poll_answers$colleague_satisfac"] <- "colleague_sat"
+names(numericData)[names(numericData) == "poll_answers$selfdev_satisfac"] <- "selfdevel_sat"
+names(numericData)[names(numericData) == "poll_answers$wage_satisfac"] <- "wage_sat"
+names(numericData)[names(numericData) == "poll_answers$balance_satisfac"] <- "balance_sat"
+names(numericData)[names(numericData) == "poll_answers$job_satisfac"] <- "job_sat"
+
+res <- cor(numericData)
+round(res, 2)
+```
+
+### Building a plot of correlation matrix to observe relationships between variables
+```{r}
+corrplot(res, type = "upper", method="circle", order = "hclust", 
+         tl.col = "black", tl.srt = 45)
+```
+We can observe correlation between age and work experience, work experience and current work experience. Also there are such correlation pairs as: management satisfaction - wage and self-development satisfaction. 
+But it is the most important for us to concentrate on job satisfaction. We see that it has the strongest positive correlation with self-development satisfaction, management satisfaction, wage satisfaction, balance satisfaction and little less with environment satisfaction and colleagues satisfaction.
+
+Just to confirm the correlation I also provided Pearson's test:
+```{r}
+cor.test(poll_answers$job_satisfac, poll_answers$selfdev_satisfac)
+cor.test(poll_answers$job_satisfac, poll_answers$head_satisfac)
+cor.test(poll_answers$job_satisfac, poll_answers$wage_satisfac)
+cor.test(poll_answers$job_satisfac, poll_answers$balance_satisfac)
+cor.test(poll_answers$job_satisfac, poll_answers$colleague_satisfac)
+cor.test(poll_answers$job_satisfac, poll_answers$envir_satisfac)
+```
+
+It was interesting for me to try to see dependencies of such factors as gender and marital status on job satisfaction visually. So I decided to create several plots with variables that don't have big correlation with job satisfaction:
+
+```{r}
+marital_status <- table(poll_answers$marital_status, poll_answers$job_satisfac)
+barplot(marital_status, col = c("#0073C2FF", "#CD534CFF", "#43544CFF"), legend.text = TRUE, xlab = "satisfaction", ylab = "count", main = "Job satisfaction depending on marital status")
+
+gender <- table(poll_answers$gender, poll_answers$job_satisfac)
+barplot(gender, col = c("#0073C2FF", "#EFC000FF"), legend.text = TRUE, xlab = "satisfaction", ylab = "count", main = "Job satisfaction depending on gender")
+
+young <- poll_answers$age[poll_answers$age <= 20]
+young2 <- poll_answers$age[poll_answers$age > 20 & poll_answers$age <= 35]
+young3 <- poll_answers$age[poll_answers$age > 35 & poll_answers$age <= 50]
+older <- poll_answers$age[poll_answers$age > 50]
+
+```
+Even looking at these graphs we can see, that job satisfaction distribution is pretty similar for both women and men and the same is for marital status.
+
+Before building linear regression model I checked linearity between variables.
+### Checking linear dependance of variables
+```{r}
+
+# Check liner dependence of variables that are strongly correlated with our target variable - job satisfaction
+ggplot(poll_answers, aes(x=selfdev_satisfac, y=job_satisfac)) + ggtitle("Dependence of ability for self-development on job satisfaction") +
+    geom_point() + geom_smooth(method = lm, formula = y ~ x)
+
+ggplot(poll_answers, aes(x=head_satisfac, y=job_satisfac)) + ggtitle("Dependence of satisfaction about company's management on job satisfaction") +
+    geom_point() + geom_smooth(method = lm, formula = y ~ x)
+
+ggplot(poll_answers, aes(x=wage_satisfac, y=job_satisfac)) + ggtitle("Dependence of wage on job satisfaction") +
+    geom_point() + geom_smooth(method = lm, formula = y ~ x)
+
+ggplot(poll_answers, aes(x=envir_satisfac, y=job_satisfac)) + ggtitle("Dependence of environment satisfaction on job satisfaction") +
+    geom_point() + geom_smooth(method = lm, formula = y ~ x)
+
+ggplot(poll_answers, aes(x=balance_satisfac, y=job_satisfac)) + ggtitle("Dependence of life balance level on job satisfaction") +
+    geom_point() + geom_smooth(method = lm, formula = y ~ x)
+
+ggplot(poll_answers, aes(x=colleague_satisfac, y=job_satisfac)) + ggtitle("Dependence of colleagues on job satisfaction") +
+    geom_point() + geom_smooth(method = lm, formula = y ~ x)
+
+```
+
+Looking at these plots, we observe linearity in parameters.
+
+### Building linear models
+Now it is time to try to build linear model, having job satisfaction as our dependent variable. I tried to add each factor that was strongly correlated with job satisfaction one by one and observe how the linear regression model changed.
+```{r}
+# first simple model that includes only factor of freedom and ability for self-development, as it has the biggest correlation with job satisfaction
+lmodel.selfdev <- lm(poll_answers$job_satisfac ~ poll_answers$selfdev_satisfac)
+summary(lmodel.selfdev)
+```
+We can see, that ability for self-development has a huge influence on human, that is in fact very obvious. If person doesn't see new opportunities for her at work, she loses enthusiasm and desire to work, her motivation and satisfaction reduces.
+
+```{r}
+# Adding factor of management satisfaction
+lmodel.selfdev.management <- lm(poll_answers$job_satisfac ~ poll_answers$selfdev_satisfac + poll_answers$head_satisfac)
+summary(lmodel.selfdev.management)
+
+```
+Having added one more factor, our model became better. And we can make a conclusion, that employee's satisfaction of the management office in his company is really important.
+
+```{r}
+# Adding factor of wage satisfaction
+lmodel.selfdev.management.wage <- lm(poll_answers$job_satisfac ~ poll_answers$selfdev_satisfac + poll_answers$head_satisfac + poll_answers$wage_satisfac)
+summary(lmodel.selfdev.management.wage)
+```
+At this moment we can observe that our model became better with each added factor. We can see it by looking at the values of adjusted R-squared. We also can look at the p-value of F-statistics, that is lower than our significant level. However management satisfaction became less significant now and that can be explained by quite big correlation between wage and management satisfaction. But as that lead to improving of our model we I decided to include head satisfaction to it at that moment, but I will return to this question further.
+I will continue improving model.
+
+```{r}
+# Adding factor of life and work balance satisfaction
+lmodel.selfdev.management.wage.balance <- lm(poll_answers$job_satisfac ~ poll_answers$selfdev_satisfac + poll_answers$head_satisfac + poll_answers$wage_satisfac + poll_answers$balance_satisfac)
+summary(lmodel.selfdev.management.wage.balance)
+```
+Our model became better again.
+Now we add another factor - environment satisfaction, that has little correlation with job satisfaction.
+
+```{r}
+# Adding factor of environment satisfaction
+lmodel.selfdev.management.wage.balance.env <- lm(poll_answers$job_satisfac ~ poll_answers$selfdev_satisfac + poll_answers$head_satisfac + poll_answers$wage_satisfac + poll_answers$balance_satisfac + poll_answers$envir_satisfac)
+summary(lmodel.selfdev.management.wage.balance.env)
+
+```
+
+I also decided to include the factors of education level and distance to workplace.
+
+```{r}
+# Adding education factor
+final <- lm(poll_answers$job_satisfac ~ poll_answers$selfdev_satisfac + poll_answers$head_satisfac + poll_answers$wage_satisfac + poll_answers$balance_satisfac + poll_answers$envir_satisfac + poll_answers$education_level + poll_answers$dist_to_work)
+summary(final)
+```
+```{r}
+export_summs(lmodel.selfdev, lmodel.selfdev.management, lmodel.selfdev.management.wage, lmodel.selfdev.management.wage.balance, lmodel.selfdev.management.wage.balance.env, final, scale=TRUE, model.names = c("Self_development", "Self_development and management", "Self_development, management and wage", "Self_development, management, wage and balance","Self_development, management, wage, balance and environment", "Self_development, management, wage, balance, environment, education and distance to work"))
+```
+
+
+Now, when all variables are already included, I decided to check for correlation between several variables.
+```{r}
+cor.test(poll_answers$head_satisfac, poll_answers$wage_satisfac)
+cor.test(poll_answers$head_satisfac, poll_answers$selfdev_satisfac)
+```
+
+We observe quite big correlation between those variables, so it is better to exclude head_satisfaction.
+
+```{r}
+final2 <- lm(poll_answers$job_satisfac ~ poll_answers$selfdev_satisfac + poll_answers$wage_satisfac + poll_answers$balance_satisfac + poll_answers$envir_satisfac + poll_answers$education_level +poll_answers$dist_to_work)
+summary(final2)
+```
+
+So, finally our linear model is constructed. Although we can observe that environment satisfaction and distance to workplace are not so significant, anyway there is quite significant relationship between them and job satisfaction variable.
+In result our linear regression model now includes satisfaction of self-development, wage, life and work balance, environment, education level of person and distance to workplace. All  have small p-values, that means that the estimates are significant.
+We can state that this model is quite good, as significant level is high and adjusted R-squared value is 0,57 that is also not bad. 
+
+Now we check other assumptions, using R base function plot().
+```{r}
+par(mfrow = c(2, 2))
+plot(final2)
+```
+First plot is a scatter plot of residuals on the y axis and fitted values (estimated responses) on the x axis. We see that the red line is approximately horizontal at zero, that proves assumption about linearity. Moreover, we ca assume that there is no heteroscedasticity, as we observe no increase in variance, as the variables increase.
+
+Looking at graph "Normal Q-Q" we check whether the residuals are normally distributed. Residuals points follow the straight dashed line and this proves second assumption concerning normal distribution of residuals.
+
+Looking at graph "Residuals vs Leverage" we see that it highlights the top 3 most extreme points (#22, #59 and #199). However, there is no outliers that exceed 3 standard deviations, what is good.
+
+We build a histogram for residuals to see whether the error term has zero population mean. And we can observe that it really has. So this assumption also holds.
+```{r}
+res_histogram <- qplot(final2$residuals,
+               geom = "histogram",
+               bins = 10) +
+         labs(title = "Histogram of residuals",
+              x = "residual")
+res_histogram
+```
+How we return to question of correlation between explanatory variables. Correlation explains collinearity. (Collinearity is a phenomenon related to regression, in which some of the predictor variables are highly correlated among themselves.) That is a problem for regressions (estimate of one predictor on the response variable will tend to be less precise and less reliable, The standard errors of the coefficients of the predictors tend to be large. In that case, we fail to reject the null hypothesis of linear regression that the coefficient is equal to zero..)
+So I check for the collinearity and how much it is.
+
+I use function omcdiag() to find out whether there is really collinearity.
+```{r}
+omcdiag(final2)
+```
+
+Only one diagnostic (Farrar Chi-Square) showed that there is possible collinearity.
+
+To be sure, I also try individual collinearity diagnostic measure using imcdiag() function. I chose method VIF (Variance Inflation Factor) as it is the most common diagnostic and one of the best ways to identify the multicollinearity. VIF tells us about how well an independent variable is predictable using the other independent variables.
+VIF is computed using R-squared (VIF = 1/(1 - R^2)). So, VIF increases as R^2 increases.
+
+VIF value must be as small as possible. VIF = 5 is often taken as a threshold.
+So I compute VIF values for each variable included in our model.
+```{r}
+imcdiag(final2, method = "VIF")
+```
+
+We observe that VIF Method Failed to detect multicollinearity and each variable has VIF value < 5, so no variables need to be removed and there is no multicolinearity.
+
+Another assumption requires that there is little or no autocorrelation in the data (residuals are independent). Although this problem is rarely met in cases with cross-sectional data, I will check it anyway.
+
+durbinWatsonTest() from car package verifies if the residuals from a linear model are correlated or not.
+```{r}
+durbinWatsonTest(final2)
+```
+
+p-value is quite big, so we fail to reject H0, that there is no autocorrelation. That also confirms the value of D-W Statistic: it is close to 2, that means small autocorrelation. So, this assumption holds.
+
+Final interpretation of the model and results:
+Factors that have considerable impact are ability for self-development, life balance, wage, education level, place where work is situated.
+Such things as age, gender, marital status, specialty and working experience don't really influence employees' wellbeing.
