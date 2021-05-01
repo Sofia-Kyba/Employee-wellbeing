@@ -1,2 +1,2 @@
 # Employee-wellbeing
-Econometrics course work.
+Econometrics coursework.
